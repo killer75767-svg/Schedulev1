@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Расписание</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#111111; --soft:#6b6b6b; --card:#ffffff;
+    --line:#d9d9d9; --hl:#111111; --ring:#f5c518;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--ink);
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    animation:softbg 8s ease-in-out infinite;
+  }
+  @keyframes softbg{0%,100%{background:#ffffff}50%{background:#f2f2f2}}
+  .wrap{width:100%; max-width:640px; padding:18px}
+  .card{
+    background:var(--card); border:2px solid var(--ink); border-radius:16px;
+    padding:20px; box-shadow:6px 6px 0 #000;
+  }
+  h1{margin:0 0 4px; font-size:26px; letter-spacing:.5px; text-align:center}
+  .clock{text-align:center; font-size:34px; font-weight:700; font-variant-numeric:tabular-nums; margin:6px 0 2px}
+  .timerbox{display:flex; flex-direction:column; align-items:center; margin:12px 0 6px}
+  .ringwrap{position:relative; width:190px; height:190px}
+  .ringwrap svg{transform:rotate(-90deg)}
+  .timer{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:2px;
+  }
+  #left{font-size:34px; font-weight:800; color:#111; font-variant-numeric:tabular-nums}
+  #state{font-size:13px; color:var(--soft); text-align:center; max-width:150px}
+  table{width:100%; border-collapse:collapse; margin-top:10px; font-size:15px}
+  td,th{padding:8px 6px; border-bottom:1px solid var(--line); text-align:left}
+  tr.cur{background:#111; color:#fff; font-weight:700}
+  tr.cur .sub{color:#ddd}
+  tr.next{border-left:4px solid #111}
+  tr.done{opacity:.45}
+  .sub{color:var(--soft); font-size:13px}
+  .btnrow{display:flex; justify-content:center; gap:10px; margin-top:12px}
+  button{
+    border:2px solid #111; background:#fff; color:#111; border-radius:10px;
+    padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer;
+    box-shadow:3px 3px 0 #000;
+  }
+  button:active{transform:translate(2px,2px); box-shadow:1px 1px 0 #000}
+  .foot{text-align:center; font-size:12.5px; color:var(--soft); margin-top:12px}
+  .err{color:#a00; font-size:12px; text-align:center; margin-top:6px; min-height:14px}
+
+  /* экран загрузки */
+  #loader{
+    position:fixed; inset:0; background:#fff; z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    transition:opacity .4s ease;
+  }
+  #loader.hide{opacity:0; pointer-events:none}
+  .spin{
+    width:44px; height:44px; border:4px solid #d9d9d9; border-top-color:#111;
+    border-radius:50%; animation:sp 1s linear infinite;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .ltext{font-size:16px; font-weight:700}
+  .lsub{font-size:12.5px; color:var(--soft)}
+
+  /* конфетти */
+  .conf{position:fixed; top:-12px; width:9px; height:14px; z-index:40; opacity:.9}
+  @keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="spin"></div>
+  <div class="ltext">Загрузка…</div>
+  <div class="lsub">ожидание сервера</div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h1>Расписание №2</h1>
+    <div class="clock" id="clock">--:--:--</div>
+
+    <div class="timerbox">
+      <div class="ringwrap">
+        <svg width="190" height="190" viewBox="0 0 190 190">
+          <circle cx="95" cy="95" r="86" fill="none" stroke="#e6e6e6" stroke-width="10"/>
+          <circle id="arc" cx="95" cy="95" r="86" fill="none" stroke="#f5c518" stroke-width="10"
+                  stroke-linecap="round" stroke-dasharray="540.35" stroke-dashoffset="540.35"/>
+        </svg>
+        <div class="timer">
+          <div id="left">--:--</div>
+          <div id="state">Загрузка…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow"><button id="snd">Звук: вкл</button></div>
+
+    <table>
+      <tr><th>№</th><th>Что</th><th>Время</th></tr>
+      <tr data-a="620" data-b="660"><td>1</td><td>Урок</td><td>10:20 — 11:00</td></tr>
+      <tr data-a="660" data-b="670"><td></td><td>Перемена</td><td>11:00 — 11:10</td></tr>
+      <tr data-a="670" data-b="710"><td>2</td><td>Урок</td><td>11:10 — 11:50</td></tr>
+      <tr data-a="710" data-b="720"><td></td><td>Перемена</td><td>11:50 — 12:00</td></tr>
+      <tr data-a="720" data-b="760"><td>3</td><td>Урок</td><td>12:00 — 12:40</td></tr>
+      <tr data-a="760" data-b="785" id="canteen"><td></td><td>Столовая 25 мин</td><td>12:40 — 13:05</td></tr>
+      <tr data-a="785" data-b="825"><td>4</td><td>Урок</td><td>13:05 — 13:45</td></tr>
+      <tr data-a="825" data-b="835"><td></td><td>Перемена</td><td>13:45 — 13:55</td></tr>
+      <tr data-a="835" data-b="875"><td>5</td><td>Урок</td><td>13:55 — 14:35</td></tr>
+      <tr data-a="875" data-b="885"><td></td><td>Перемена</td><td>14:35 — 14:45</td></tr>
+      <tr data-a="885" data-b="925"><td>6</td><td>Урок</td><td>14:45 — 15:25</td></tr>
+      <tr data-a="925" data-b="935"><td></td><td>Перемена</td><td>15:25 — 15:35</td></tr>
+      <tr data-a="935" data-b="975"><td>7</td><td>Урок</td><td>15:35 — 16:15</td></tr>
+      <tr data-a="975" data-b="990" id="bus"><td></td><td>Ожидание автобуса 15 мин</td><td>16:15 — 16:30</td></tr>
+    </table>
+
+    <div class="foot">Урок — 40 мин · перемена — 10 мин · весь день — 6 ч 10 мин</div>
+    <div class="err" id="err"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  try{
+    var rows = [].slice.call(document.querySelectorAll('tr[data-a]'));
+    var clockEl = document.getElementById('clock');
+    var leftEl  = document.getElementById('left');
+    var stateEl = document.getElementById('state');
+    var arcEl   = document.getElementById('arc');
+    var errEl   = document.getElementById('err');
+    var sndBtn  = document.getElementById('snd');
+    var soundOn = true;
+
+    var CIRC = 540.35;
+
+    function toMin(h,m){ return h*60+m; }
+
+    function fmt(ms){
+      var s = Math.max(0, Math.floor(ms/1000));
+      var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+      var p = function(x){return (x<10?'0':'')+x;};
+      return (h>0 ? h+':' : '')+p(m)+':'+p(ss);
+    }
+
+    function fmtHM(v){
+      var h = Math.floor(v/60), m = v%60;
+      var p = function(x){return (x<10?'0':'')+x;};
+      return p(h)+':'+p(m);
+    }
+
+    function beep(){
+      try{
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return;
+        var ctx = new AC();
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; o.type='sine';
+        g.gain.setValueAtTime(0.25, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.2);
+        o.start(); o.stop(ctx.currentTime+1.2);
+      }catch(e){}
+    }
+
+    sndBtn.addEventListener('click', function(){
+      soundOn = !soundOn;
+      sndBtn.textContent = 'Звук: ' + (soundOn ? 'вкл' : 'выкл');
+    });
+
+    var lastBlock = null;
+
+    function confetti(){
+      for(var i=0;i<40;i++){
+        var d = document.createElement('div');
+        d.className='conf';
+        d.style.left = (Math.random()*100)+'vw';
+        d.style.background = ['#111','#666','#999','#f5c518'][i%4];
+        d.style.animation = 'fall '+ (2+Math.random()*2)+'s linear forwards';
+        document.body.appendChild(d);
+      }
+    }
+
+    function tick(){
+      try{
+        var now = new Date();
+        var p = function(x){return (x<10?'0':'')+x;};
+        clockEl.textContent = p(now.getHours())+':'+p(now.getMinutes())+':'+p(now.getSeconds());
+        var nowMin = now.getHours()*60 + now.getMinutes();
+        var sec = now.getSeconds();
+
+        var found = null, nextRow = null;
+        for(var i=0;i<rows.length;i++){
+          var a = +rows[i].dataset.a, b = +rows[i].dataset.b;
+          if(nowMin>=a && nowMin<b){ found = rows[i]; nextRow = rows[i+1]||null; break; }
+        }
+        if(!found && nowMin < +rows[0].dataset.a){ found=null; nextRow = rows[0]; }
+
+        // подсветка строк
+        rows.forEach(function(r){ r.classList.remove('cur','next'); });
+        if(found) found.classList.add('cur');
+        else if(nextRow) nextRow.classList.add('next');
+        if(!found && nextRow === rows[0]) rows[0].classList.add('next');
+
+        var key;
+        if(found){
+          key = 'in'+found.dataset.a;
+          var a = +found.dataset.a, b = +found.dataset.b;
+          var end = new Date(now); end.setHours(Math.floor(b/60), b%60, 0, 0);
+          var total = (b-a)*60*1000;
+          var passed = Math.min(total, now - new Date(now).setHours(Math.floor(a/60),a%60,0,0));
+          leftEl.textContent = fmt(end - now);
+          arcEl.setAttribute('stroke-dashoffset', String(CIRC*(1 - Math.max(0,passed)/total)));
+
+          if(found.id==='canteen'){ stateEl.textContent='Столовая! Урок 4 начнётся через'; key='canteen'; }
+          else if(found.id==='bus'){ stateEl.textContent='Ожидание автобуса! Можно идти домой через'; key='bus'; }
+          else if(found.querySelector('td:first-child').textContent.trim()){
+            stateEl.textContent='Урок идёт. До конца';
+            key='lesson'+a;
+          }
+          else { stateEl.textContent='Перемена! Следующий урок через'; key='break'+a; }
+        } else if(nextRow){
+          key = 'pre'+nextRow.dataset.a;
+          var a2 = +nextRow.dataset.a;
+          var start = new Date(now); start.setHours(Math.floor(a2/60), a2%60, 0, 0);
+          leftEl.textContent = fmt(start - now);
+          arcEl.setAttribute('stroke-dashoffset', String(CIRC));
+          if(nextRow.dataset.a === rows[0].dataset.a){ stateEl.textContent='До начала 1-го урока'; key='pre-day'; }
+          else if(nextRow.id==='canteen'){ stateEl.textContent='До столовой'; }
+          else if(nextRow.id==='bus'){ stateEl.textContent='До ожидания автобуса'; }
+          else if(nextRow.querySelector('td:first-child').textContent.trim()){ stateEl.textContent='До начала урока'; }
+          else { stateEl.textContent='До перемены'; }
+        } else {
+          key='after';
+          leftEl.textContent='00:00';
+          arcEl.setAttribute('stroke-dashoffset', String(CIRC));
+          stateEl.textContent='Уроки закончились!';
+          if(lastBlock!=='after'){ confetti(); if(soundOn) beep(); }
+        }
+
+        if(key!==lastBlock){ if(lastBlock && soundOn) beep(); lastBlock=key; }
+        errEl.textContent='';
+      }catch(e){
+        errEl.textContent = 'Ошибка: ' + e.message;
+      }
+    }
+
+    tick();
+    setInterval(tick, 1000);
+  }catch(e){
+    var errEl2 = document.getElementById('err');
+    if(errEl2) errEl2.textContent = 'Ошибка: ' + e.message;
+  }
+})();
+
+// экран загрузки: 2 секунды
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    var L = document.getElementById('loader');
+    if(L) L.classList.add('hide');
+  }, 2000);
+});
+</script>
+</body>
+</html>
